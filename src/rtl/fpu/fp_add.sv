@@ -1,5 +1,9 @@
 module fp_add #(
-    parameter DATAWIDTH = 32
+    parameter DATAWIDTH = 32,
+    parameter NORMAL = 2'b00,
+    parameter NaN = 2'b01,
+    parameter INF = 2'b10,
+    parameter ZERO = 2'b11
 ) 
 (
     input [DATAWIDTH-1:0]       a,
@@ -16,49 +20,62 @@ module fp_add #(
 );
     reg [24:0]  start_ma, start_mb;
     reg [7:0]   start_ea, start_eb;
-    reg         start_ena;
+    reg [1:0]   start_st; // 00: normal 01: NaN 10:inf 11:zero
+    reg         start_ena, start_sa, start_sb;
 
+//start stage
     always @(posedge clk) begin
         if(rst) begin
-            start_ma <= 'h0;
-            start_mb <= 'h0;
-            start_ea <= 'h0;
-            start_eb <= 'h0;
-            start_ena <= 'b0;
+            start_ma <= 'd0;
+            start_mb <= 'd0;
+            start_ea <= 'd0;
+            start_eb <= 'd0;
+            start_st <= NORMAL;
+            start_ena <= 'd0;
+            start_sa <= 'd0;
+            start_sb <= 'd0;
         end
-        else  begin
-            start_ena <= ena;
-            start_ma <= {1'b0, 1'b1, a[22:0]};
-            start_mb <= {1'b0, 1'b1, b[22:0]};
-            start_ea <= a[30:23];
-            start_eb <= b[30:23];
-        end
-    end
-
-    reg [24:0]  zeroCheck_ma, zeroCheck_mb;
-    reg [7:0]   zeroCheck_ea, zeroCheck_eb;
-    reg         zeroCheck_ena, zeroCheck_nan, zeroCheck_over;
-
-    always @(posedge clk) begin
-        if(rst) begin
-            zeroCheck_ma <= 'h0;
-            zeroCheck_mb <= 'h0;
-            zeroCheck_ea <= 'h0;
-            zeroCheck_eb <= 'h0;
-            zeroCheck_ena <= 'b0;
-            zeroCheck_nan <= 'b0;
-            zeroCheck_over <= 'b0;
-        end
-        else begin
-            zeroCheck_ma <= start_ma;
-            zeroCheck_mb <= start_mb;
-            zeroCheck_ea <= start_ea;
-            zeroCheck_eb <= start_eb;
-            zeroCheck_ena <= start_ena;
-            if((start_ea==8'hFF&&start_ma[22:0]!=0)||(start_eb==8'hFF&&start_mb[22:0]!=0)
+        else if(ena) begin
+            start_ena = 'b1;
+            if(a[30:23] == 8'hFF) begin
+                if(a[22:0] != 0) begin
+                    start_st <= NaN;
+                end
+                else begin
+                    start_st <= INF;
+                end
+            end
+            else if (b[30:23] == 8'hFF)begin
+                if(b[22:0] != 0) begin
+                    start_st <= NaN;
+                end
+                else begin
+                    start_st <= INF;
+                end
+            end
+            else begin
+                start_st <= NORMAL;
+                start_ea <= a[30:23];
+                start_eb <= b[30:23];
+                start_sa <= a[31];
+                start_sb <= b[31];
+                if(a[30:23] == 8'h0) begin
+                    start_ma <= {1'b0, 1'b0, a[22:0]};
+                end
+                else begin
+                    start_ma <= {1'b0, 1'b1, a[22:0]};
+                end
+                if (b[30:23] == 8'h0) begin
+                    start_mb <= {1'b0, 1'b0, b[22:0]};
+                end
+                else begin
+                    start_mb  <=  {1'b0, 1'b1, b[22:0]};
+                end
+            end
         end
     end
      
+
 
 
 endmodule
